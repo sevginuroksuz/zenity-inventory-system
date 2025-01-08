@@ -3,6 +3,11 @@
 Bu proje, bir ürün yönetim sistemi olarak tasarlanmıştır. Zenity GUI arayüzü kullanılarak kullanıcı dostu bir deneyim sağlanmıştır. Sistem, ürünlerin eklenmesi, güncellenmesi, silinmesi ve çeşitli raporların oluşturulmasını destekler. Ayrıca kullanıcı yönetimi ve veri güvenliği gibi özellikler sunar.
 
 ---
+## Proje Tanıtımı
+
+Bu proje ile ilgili daha fazla bilgi için YouTube videosunu izleyebilirsiniz:
+
+[![Proje Tanıtım Videosu](https://img.youtube.com/vi/<VideoID>/0.jpg)](https://www.youtube.com/watch?v=oyBw2Qt5e7U)
 
 ## Özellikler
 
