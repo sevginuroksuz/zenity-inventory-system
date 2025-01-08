@@ -10,7 +10,7 @@ Bu proje ile ilgili daha fazla bilgi için YouTube videosunu izleyebilirsiniz:
 [![Proje Tanıtım Videosu](https://img.youtube.com/vi/<VideoID>/0.jpg)](https://www.youtube.com/watch?v=oyBw2Qt5e7U)
 
 ## Proje Github Linki
-[![Proje Tanıtım Videosu]()](https://github.com/sevginuroksuz/zenity-inventory-system)
+[![Proje Github]()](https://github.com/sevginuroksuz/zenity-inventory-system)
 
 
 ## Özellikler
