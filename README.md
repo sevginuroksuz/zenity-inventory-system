@@ -108,10 +108,6 @@ Bu komut, tüm .sh dosyalarını yürütülebilir hale getirir. Bu işlemden son
    - Toplam ürün sayısı.
    - Toplam stok miktarı.
    - Ortalama stok miktarı.
-
-### Grafik Görselleştirme (Opsiyonel)
-Raporların grafiksel olarak görselleştirilmesi için Matplotlib veya benzer bir araç kullanılabilir.
-
 ---
 
 ## Geliştirme
