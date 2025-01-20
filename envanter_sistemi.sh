@@ -9,7 +9,7 @@ export encrypt_type=$(grep "model1: " settings.yml | awk '{print $2}')
 # Gerekli dosyaları kontrol eden ve oluşturan fonksiyon
 function check_files() {
 
-    
+    mkdir ${file_storage}
 
     if [[ ! -f "${file_storage}/log.csv" ]]; then
         echo "log.csv dosyası oluşturuluyor..."
