@@ -1,19 +1,29 @@
 #!/bin/bash
 
+#ayarları burda tanımlamak için başlangıç noktası
+export file_storage=$(grep "csvfilespath: " settings.yml | awk '{print $2}')
+export wwidth=$(grep "w-width: " settings.yml | awk '{print $2}')
+export wheight=$(grep "w-height: " settings.yml | awk '{print $2}')
+export encrypt_type=$(grep "model1: " settings.yml | awk '{print $2}')
+
 # Diskteki Alanı Göster
 function show_disk_usage() {
-    du -sh depo.csv kullanici.csv log.csv | zenity --text-info --title="Disk Kullanımı"
+    du -sh ${file_storage}/depo.csv ${file_storage}/kullanici.csv ${file_storage}/log.csv | zenity --text-info --title="Disk Kullanımı"
+    
+    if [[ $? -ne 0 ]]; then
+        return
+    fi
 }
 
 # Diske Yedekleme
 function backup_files() {
-    tar -czf backup.tar.gz depo.csv kullanici.csv
+    tar -czf backup.tar.gz ${file_storage}/depo.csv ${file_storage}/kullanici.csv
     zenity --info --text="Dosyalar yedeklendi: backup.tar.gz"
 }
 
 # Program Yönetim Menüsü
 function program_management_menu() {
-    choice=$(zenity --list --title="Program Yönetimi" \
+    choice=$(zenity --list --width=${wwidth} --height=${wheight} --title="Program Yönetimi" \
         --column="Seçim" --column="İşlem" \
         1 "Diskteki Alanı Göster" \
         2 "Diske Yedekle")

@@ -1,8 +1,15 @@
 #!/bin/bash
 
+
+#ayarları burda tanımlamak için başlangıç noktası
+export file_storage=$(grep "csvfilespath: " settings.yml | awk '{print $2}')
+export wwidth=$(grep "w-width: " settings.yml | awk '{print $2}')
+export wheight=$(grep "w-height: " settings.yml | awk '{print $2}')
+export encrypt_type=$(grep "model1: " settings.yml | awk '{print $2}')
+
 # CSV Kontrol Fonksiyonu: Gerekli CSV dosyasını kontrol eder ve yoksa oluşturur.
 function check_files() {
-    for file in depo.csv; do
+    for file in ${file_storage}/depo.csv; do
         if [[ ! -f "$file" ]]; then
             echo "No,Ad,Stok,Fiyat,Kategori" > "$file"
         fi
@@ -13,8 +20,8 @@ function check_files() {
 function low_stock_report() {
     threshold=$(zenity --entry --title="Stok Eşiği" --text="Lütfen stok eşik değerini girin:")
     if [[ $? -eq 0 ]]; then
-        awk -F',' -v threshold="$threshold" 'NR > 1 && $3 < threshold {print $0}' depo.csv > low_stock.csv
-        zenity --text-info --title="Stokta Azalan Ürünler" --filename=low_stock.csv
+        awk -F',' -v threshold="$threshold" 'NR > 1 && $3 < threshold {print $0}' ${file_storage}/depo.csv > ${file_storage}/low_stock.csv
+        zenity --text-info --title="Stokta Azalan Ürünler" --filename=${file_storage}/low_stock.csv
     else
         zenity --error --text="İşlem iptal edildi."
     fi
@@ -24,8 +31,8 @@ function low_stock_report() {
 function high_stock_report() {
     top_n=$(zenity --entry --title="Ürün Sayısı" --text="Kaç ürün göstermek istersiniz?")
     if [[ $? -eq 0 ]]; then
-        sort -t',' -k3 -nr depo.csv | head -n "$((top_n + 1))" > high_stock.csv
-        zenity --text-info --title="En Yüksek Stok Ürünler" --filename=high_stock.csv
+        sort -t',' -k3 -nr ${file_storage}/depo.csv | head -n "$((top_n + 1))" > ${file_storage}/high_stock.csv
+        zenity --text-info --title="En Yüksek Stok Ürünler" --filename=${file_storage}/high_stock.csv
     else
         zenity --error --text="İşlem iptal edildi."
     fi
@@ -33,11 +40,11 @@ function high_stock_report() {
 
 # Kategori Bazlı Raporlama
 function category_report() {
-    selected_category=$(awk -F',' 'NR > 1 {print $5}' depo.csv | sort | uniq | zenity --list --title="Kategori Seçimi" --column="Kategori" --text="Bir kategori seçin:")
+    selected_category=$(awk -F',' 'NR > 1 {print $5}' ${file_storage}/depo.csv | sort | uniq | zenity --list --title="Kategori Seçimi" --column="Kategori" --text="Bir kategori seçin:")
 
     if [[ -n "$selected_category" ]]; then
-        filtered_file="${selected_category}_raporu.csv"
-        awk -F',' -v category="$selected_category" 'NR > 1 && $5 == category {print $0}' depo.csv > "$filtered_file"
+        filtered_file="${file_storage}/${selected_category}_raporu.csv"
+        awk -F',' -v category="$selected_category" 'NR > 1 && $5 == category {print $0}' ${file_storage}/depo.csv > "$filtered_file"
         zenity --text-info --title="$selected_category Raporu" --filename="$filtered_file"
     else
         zenity --error --title="Hata" --text="Kategori seçilmedi!"
@@ -46,10 +53,10 @@ function category_report() {
 
 # Genel Özellik ve İstatistik Raporu
 function statistics_report() {
-    total_products=$(awk -F',' 'NR > 1 {count++} END {print count}' depo.csv)
-    total_stock=$(awk -F',' 'NR > 1 {sum += $3} END {print sum}' depo.csv)
-    avg_stock=$(awk -F',' 'NR > 1 {sum += $3; count++} END {if (count > 0) print sum / count; else print 0}' depo.csv)
-    avg_price=$(awk -F',' 'NR > 1 {sum += $4; count++} END {if (count > 0) print sum / count; else print 0}' depo.csv)
+    total_products=$(awk -F',' 'NR > 1 {count++} END {print count}' ${file_storage}/depo.csv)
+    total_stock=$(awk -F',' 'NR > 1 {sum += $3} END {print sum}' ${file_storage}/depo.csv)
+    avg_stock=$(awk -F',' 'NR > 1 {sum += $3; count++} END {if (count > 0) print sum / count; else print 0}' ${file_storage}/depo.csv)
+    avg_price=$(awk -F',' 'NR > 1 {sum += $4; count++} END {if (count > 0) print sum / count; else print 0}' ${file_storage}/depo.csv)
 
     zenity --info --title="Genel Özellik ve İstatistik Raporu" \
         --text="Toplam Ürün Sayısı: $total_products\nToplam Stok Miktarı: $total_stock\nOrtalama Stok Miktarı: $avg_stock\nOrtalama Birim Fiyat: $avg_price"
@@ -57,7 +64,7 @@ function statistics_report() {
 
 # Menü: Kullanıcıdan işlem seçmesini ister ve ilgili fonksiyonu çağırır.
 while true; do
-    secim=$(zenity --list --title="Raporlama Menüsü" \
+    secim=$(zenity --list --text="işlem" --width=${wwidth} --height=${wheight} --title="Raporlama Menüsü" \
         --column="Seçim" --column="İşlem" \
         1 "Stokta Azalan Ürünler" \
         2 "En Yüksek Stok Miktarı" \
@@ -66,8 +73,7 @@ while true; do
         5 "Çıkış")
 
     if [[ $? -ne 0 ]]; then
-        zenity --info --title="Çıkış" --text="İşlem iptal edildi. Program sonlandırılıyor."
-        exit 0
+        return
     fi
 
     case "$secim" in

@@ -1,8 +1,13 @@
 #!/bin/bash
 
+#ayarları burda tanımlamak için başlangıç noktası
+export file_storage=$(grep "csvfilespath: " settings.yml | awk '{print $2}')
+export wwidth=$(grep "w-width: " settings.yml | awk '{print $2}')
+export wheight=$(grep "w-height: " settings.yml | awk '{print $2}')
+
 # CSV Kontrol Fonksiyonu: Gerekli CSV dosyasını kontrol eder ve yoksa oluşturur.
 function check_files() {
-    for file in depo.csv; do
+    for file in ${file_storage}/depo.csv; do
         if [[ ! -f "$file" ]]; then
             echo "No,Ad,Stok,Fiyat,Kategori" > "$file"
         fi
@@ -11,10 +16,10 @@ function check_files() {
 
 # Eşsiz Ürün Numarası: Ürün numarasını otomatik olarak artırır.
 function get_next_product_id() {
-    if [[ ! -s depo.csv || $(wc -l < depo.csv) -eq 1 ]]; then
+    if [[ ! -s ${file_storage}/depo.csv || $(wc -l < ${file_storage}/depo.csv) -eq 1 ]]; then
         echo 1
     else
-        tail -n +2 depo.csv | awk -F',' '{print $1}' | sort -n | tail -1 | awk '{print $1 + 1}'
+        tail -n +2 ${file_storage}/depo.csv | awk -F',' '{print $1}' | sort -n | tail -1 | awk '{print $1 + 1}'
     fi
 }
 
@@ -42,20 +47,19 @@ function add_product() {
 
         # Giriş Doğrulama
         if validate_input "$stok" && validate_input "$fiyat"; then
-            existing_product=$(awk -F',' -v name="$ad" -v category="$kategori" 'NR>1 && $2==name {print $0}' depo.csv)
+            existing_product=$(awk -F',' -v name="$ad" -v category="$kategori" 'NR>1 && $2==name {print $0}' ${file_storage}/depo.csv)
 
             if [[ -n "$existing_product" ]]; then
                 zenity --error --text="Bu ürün zaten mevcut!"
             else
-                echo "$next_id,$ad,$stok,$fiyat,$kategori" >> depo.csv
+                echo "$next_id,$ad,$stok,$fiyat,$kategori" >> ${file_storage}/depo.csv
                 zenity --info --text="Ürün başarıyla eklendi!"
             fi
         else
             zenity --error --text="Hatalı giriş! Stok ve fiyat 0'dan küçük veya geçersiz olamaz."
         fi
     else
-        zenity --info --text="İşlem iptal edildi. Program sonlandırılıyor."
-        exit 0
+        return
     fi
 }
 
@@ -63,12 +67,11 @@ function add_product() {
 function update_product() {
     urun_no=$(zenity --entry --title="Ürün Güncelle" --text="Güncellenecek ürün numarasını girin:")
     if [[ $? -ne 0 ]]; then
-        zenity --info --text="İşlem iptal edildi. Program sonlandırılıyor."
-        exit 0
+        return
     fi
 
     if [[ -n "$urun_no" ]]; then
-        product=$(grep "^$urun_no," depo.csv)
+        product=$(grep "^$urun_no," ${file_storage}/depo.csv)
         if [[ -n "$product" ]]; then
             # Mevcut ürün bilgilerini al
             eski_ad=$(echo "$product" | cut -d',' -f2)
@@ -90,7 +93,7 @@ function update_product() {
                 # Giriş Doğrulama
                 if validate_input "$yeni_stok" && validate_input "$yeni_fiyat"; then
                     # Aynı ad ve kategori için kontrol
-                    existing_product=$(awk -F',' -v name="$yeni_ad" -v category="$yeni_kategori" 'NR>1 && $2==name && $5==category {print $0}' depo.csv)
+                    existing_product=$(awk -F',' -v name="$yeni_ad" -v category="$yeni_kategori" 'NR>1 && $2==name && $5==category {print $0}' ${file_storage}/depo.csv)
 
                     if [[ -n "$existing_product" && "$existing_product" != "$product" ]]; then
                         zenity --question --text="Bu ürün başka bir kategoride zaten mevcut. Yine de güncellemek ister misiniz?"
@@ -101,14 +104,13 @@ function update_product() {
                     fi
 
                     # ID'yi değiştirmeden diğer bilgileri güncelle
-                    sed -i "/^$urun_no,/c\\$urun_no,$yeni_ad,$yeni_stok,$yeni_fiyat,$yeni_kategori" depo.csv
+                    sed -i "/^$urun_no,/c\\$urun_no,$yeni_ad,$yeni_stok,$yeni_fiyat,$yeni_kategori" ${file_storage}/depo.csv
                     zenity --info --text="Ürün başarıyla güncellendi!"
                 else
                     zenity --error --text="Hatalı giriş! Stok ve fiyat 0'dan küçük veya geçersiz olamaz."
                 fi
             else
-                zenity --info --text="İşlem iptal edildi. Program sonlandırılıyor."
-                exit 0
+                return
             fi
         else
             zenity --error --text="Ürün bulunamadı."
@@ -121,21 +123,20 @@ function update_product() {
 
 # Ürün Listeleme: Mevcut ürünleri kullanıcıya gösterir.
 function list_products() {
-    zenity --text-info --title="Ürün Listeleme" --filename=depo.csv
+    zenity --text-info --title="Ürün Listeleme" --filename=${file_storage}/depo.csv
 }
 
 # Ürün Silme: Kullanıcıdan ürün numarasını alır ve siler.
 function delete_product() {
     urun_no=$(zenity --entry --title="Ürün Sil" --text="Silinecek ürün numarasını girin:")
     if [[ $? -ne 0 ]]; then
-        zenity --info --text="İşlem iptal edildi. Program sonlandırılıyor."
-        exit 0
+        return
     fi
 
     if [[ -n "$urun_no" ]]; then
         zenity --question --text="Bu ürünü silmek istediğinizden emin misiniz?"
         if [[ $? -eq 0 ]]; then
-            sed -i "/^$urun_no,/d" depo.csv
+            sed -i "/^$urun_no,/d" ${file_storage}/depo.csv
             zenity --info --text="Ürün başarıyla silindi!"
         else
             zenity --info --text="Silme işlemi iptal edildi."
@@ -149,15 +150,15 @@ function delete_product() {
 check_files
 
 # Menü: Kullanıcıdan işlem seçmesini ister ve ilgili fonksiyonu çağırır.
+
 while true; do
-    secim=$(zenity --list --title="Ürün Yönetim Sistemi" --column="Seçim" --column="İşlem" \
+    secim=$(zenity --list --title="Ürün Yönetim Sistemi"  --width=${wwidth} --height=${wheight} --text="bir işlem seçin" --column="Seçim" --column="İşlem" \
         1 "Ürün Ekle" \
         2 "Ürün Listele" \
         3 "Ürün Güncelle" \
         4 "Ürün Sil")
 
     if [[ $? -ne 0 ]]; then
-        zenity --info --text="İşlem iptal edildi. Program sonlandırılıyor."
         exit 0
     fi
 
