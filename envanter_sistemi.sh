@@ -1,30 +1,59 @@
 #!/bin/bash
 
+#ayarları burda tanımlamak için başlangıç noktası
+export file_storage=$(grep "csvfilespath: " settings.yml | awk '{print $2}')
+export wwidth=$(grep "w-width: " settings.yml | awk '{print $2}')
+export wheight=$(grep "w-height: " settings.yml | awk '{print $2}')
+export encrypt_type=$(grep "model1: " settings.yml | awk '{print $2}')
+
 # Gerekli dosyaları kontrol eden ve oluşturan fonksiyon
-check_files() {
-    if [[ ! -f "depo.csv" ]]; then
-        echo "depo.csv dosyası oluşturuluyor..."
-        echo "ID,Ad,Stok,Fiyat,Kategori" > depo.csv
-    fi
-    if [[ ! -f "kullanici.csv" ]]; then
-        echo "kullanici.csv dosyası oluşturuluyor..."
-        echo "ID,KullaniciAdi,Parola,Role" > kullanici.csv
-        echo "1,admin,21232f297a57a5a743894a0e4a801fc3,Admin" >> kullanici.csv
-    fi
-    if [[ ! -f "log.csv" ]]; then
+function check_files() {
+
+    
+
+    if [[ ! -f "${file_storage}/log.csv" ]]; then
         echo "log.csv dosyası oluşturuluyor..."
-        echo "Tarih,Islem,Hata" > log.csv
+        echo "Tarih,Islem,Hata" > ${file_storage}/log.csv
+
+        if [[ $? -ne 0 ]]; then
+            echo "log dosyası oluşturuken hata meydana geldi" >&2
+        fi
     fi
+
+
+    if [[ ! -f "${file_storage}/depo.csv" ]]; then
+        echo "depo.csv dosyası oluşturuluyor..."
+        echo "ID,Ad,Stok,Fiyat,Kategori" > ${file_storage}/depo.csv
+
+        if [[ $? -ne 0 ]]; then
+            echo "$(date) depo.csv oluşturuken haya meydana geldi" >> ${file_storage}/log.csv
+            echo "depo.csv oluşturma hatası" >&2
+        fi
+    fi
+
+    if [[ ! -f "${file_storage}/kullanici.csv" ]]; then
+        echo "kullanici.csv dosyası oluşturuluyor..."
+        echo "ID,KullaniciAdi,Parola,Role" > ${file_storage}/kullanici.csv
+        echo "1,admin,21232f297a57a5a743894a0e4a801fc3,Admin" >> ${file_storage}/kullanici.csv
+
+        if [[ $? -ne 0 ]]; then
+            echo "$(date) kullanici.csv oluştururken hata meydana geldi" >> ${file_storage}/log.csv
+            echo "kullanici.csv oluşturma hatası" >&2
+        fi
+
+    fi
+
 }
 
 # Kullanıcı giriş fonksiyonu
-user_login() {
+function user_login() {
+
     local attempts=0
-    local max_attempts=3
+    local max_attempts=$(grep "max-attempts" settings.yml | awk '{print $2}')
     local username=""
     local password=""
 
-    while (( attempts < max_attempts )); do
+    while true; do
         login_data=$(zenity --forms --title="Kullanıcı Girişi" --text="Lütfen giriş bilgilerinizi girin:" \
             --add-entry="Kullanıcı Adı" \
             --add-password="Şifre")
@@ -37,93 +66,95 @@ user_login() {
         if [[ -n "$login_data" ]]; then
             username=$(echo "$login_data" | cut -d'|' -f1 | xargs)
             password=$(echo "$login_data" | cut -d'|' -f2 | xargs)
-            hashed_password=$(echo -n "$password" | md5sum | cut -d' ' -f1)
+            hashed_password=$(echo -n "$password" | ${encrypt_type} | cut -d' ' -f1)
 
-            user_info=$(awk -F ',' -v user="$username" -v pass="$hashed_password" 'NR>1 && $2==user && $3==pass {print $0}' kullanici.csv)
+            user_info=$(awk -F ',' -v user="$username" -v pass="$hashed_password" 'NR>1 && $2==user && $3==pass {print $0}' ${file_storage}/kullanici.csv)
             if [[ -n "$user_info" ]]; then
                 user_role=$(echo "$user_info" | cut -d',' -f4)
                 zenity --info --title="Başarılı Giriş" --text="Hoş geldiniz, $username! Rolünüz: $user_role"
                 return 0
             else
                 ((attempts++))
-                zenity --error --text="Hatalı kullanıcı adı veya şifre. Kalan deneme hakkınız: $((max_attempts - attempts))"
+                if [[ $attempts -ge $max_attempts ]]; then
+                    zenity --error --text="Çok fazla hatalı giriş yaptınız. Program sonlandırılıyor."
+                    exit 1
+                else
+                    zenity --error --text="Hatalı kullanıcı adı veya şifre. Kalan deneme hakkınız: $((max_attempts - attempts))"
+                fi
             fi
         else
             zenity --error --text="Giriş bilgileri eksik!"
         fi
     done
 
-    zenity --error --text="Çok fazla hatalı giriş yaptınız. Program sonlandırılıyor."
-    exit 1
+    
 }
 
-# Yetki kontrol fonksiyonu
-check_permissions() {
-    local action=$1  # İşlem türü: "modify", "view", "report"
+function give_permission_directory() {
 
-    case $user_role in
-        "Admin")
-            return 0  # Admin tüm işlemlere izinlidir
-            ;;
-        "Kullanıcı")
-            if [[ "$action" == "view" || "$action" == "report" ]]; then
-                return 0  # Kullanıcı yalnızca görüntüleme ve rapor alma işlemlerine izinlidir
-            else
-                zenity --error --title="Yetki Hatası" --text="Bu işlemi yapma yetkiniz yok!"
-                return 1
-            fi
-            ;;
-        *)
-            zenity --error --title="Yetki Hatası" --text="Geçersiz rol!"
-            return 1
-            ;;
-    esac
+    chmod +777 ./urun_islemleri.sh
+    chmod +777 ./kullanici_yonetimi.sh
+    chmod +777 ./program_yonetimi.sh
+    chmod +777 ./rapor_al.sh
+    
+}
+
+function exit_process() {
+
+    zenity --question --title="Çıkış Onayı" --text="Sistemden çıkmak istediğinizden emin misiniz?"
+    if [[ $? -eq 0 ]]; then
+        zenity --info --title="Çıkış" --text="Sistemden çıkılıyor!"        
+        exit 0
+    else
+        zenity --info --title="İptal" --text="Çıkış işlemi iptal edildi."
+    fi
+
 }
 
 # Ana menü fonksiyonu
-main_menu() {
+function main_menu() {
+
+    give_permission_directory #dizin için izinler
+    local request
+
     while true; do
-        secim=$(zenity --list --title="Ana Menü" --column="Seçenekler" \
-            "Ürün Islemleri" \
-            "Rapor Islemleri" \
-            "Kullanıcı Yönetimi" \
-            "Program Yönetimi" \
-            "Çıkış")
+        if [[ "$user_role" == "Admin" ]]; then 
+
+            request=$(zenity --list --title="Ana menü" --width=${wwidth} --height=${wheight} --text="admin için seçenekler" --column="Seçenekler" \
+                "Ürün Islemleri" \
+                "Rapor Islemleri" \
+                "Kullanıcı Yönetimi" \
+                "Program Yönetimi" \
+                "Çıkış"
+            )
+        else 
+            request=$(zenity --list --title="Ana menü" --width=${wwidth} --height=${wheight} --text="kullanıcı için seçenekler" --column="Seçenekler" \
+                "Rapor Islemleri" \
+                "Çıkış"
+            )
+
+        fi
 
         if [[ $? -ne 0 ]]; then
             zenity --error --text="Menüden çıkıldı. Program sonlandırılıyor."
             exit 0
         fi
 
-        case $secim in
+        case $request in
             "Ürün Islemleri")
-                if check_permissions "modify"; then
                     ./urun_islemleri.sh
-                fi
                 ;;
             "Rapor Islemleri")
-                if check_permissions "report"; then
                     ./rapor_al.sh
-                fi
                 ;;
             "Kullanıcı Yönetimi")
-                if check_permissions "modify"; then
                     ./kullanici_yonetimi.sh
-                fi
                 ;;
             "Program Yönetimi")
-                if check_permissions "modify"; then
                     ./program_yonetimi.sh
-                fi
                 ;;
             "Çıkış")
-                zenity --question --title="Çıkış Onayı" --text="Sistemden çıkmak istediğinizden emin misiniz?"
-                if [[ $? -eq 0 ]]; then
-                    zenity --info --title="Çıkış" --text="Sistemden çıkılıyor!"
-                    exit 0
-                else
-                    zenity --info --title="İptal" --text="Çıkış işlemi iptal edildi."
-                fi
+                exit_process
                 ;;
             *)
                 zenity --error --title="Hata" --text="Geçersiz bir seçim yaptınız!"
@@ -133,6 +164,6 @@ main_menu() {
 }
 
 # Script başlangıcı
-check_files
+check_files | zenity --progress --title="bilgi" --text="dosyalar başarıyla kontrol edildi" 
 user_login
 main_menu

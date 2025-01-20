@@ -1,0 +1,14 @@
+config:
+  windows:
+    w-width: 400
+    w-height: 800
+  paths:
+    csvfilespath: csvfiles
+  encrypt:
+    model1: md5sum
+    model2: sha256sum
+
+  login:
+    max-attempts: 2
+  
+  
