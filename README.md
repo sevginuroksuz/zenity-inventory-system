@@ -46,8 +46,8 @@ Bu projeyi çalıştırmak için aşağıdaki yazılımların sisteminizde kurul
 ### Adımlar
 1. Proje dosyalarını indirin veya klonlayın:
     ```bash
-    git clone <repo-url>
-    cd <repo-dizin>
+    git clone https://github.com/sevginuroksuz/zenity-inventory-system
+    cd zenity-inventory-system
     ```
 
 2. Gerekli CSV dosyalarını kontrol etmek ve oluşturmak için sistemin başlatılması:
